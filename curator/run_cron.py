@@ -99,7 +99,7 @@ if default_time_unit.lower() == "weeks":
     default_time_unit = "days"
     default_value = default_value * 7
 
-base_default_cmd = '/usr/bin/curator --loglevel ' + curlvl + ' ' + connection_info + ' delete indices --timestring %Y.%m.%d'
+base_default_cmd = '/opt/app-root/bin/curator --loglevel ' + curlvl + ' ' + connection_info + ' delete indices --timestring %Y.%m.%d'
 default_command = base_default_cmd + ' --older-than ' + str(default_value) + ' --time-unit ' + default_time_unit + ' --exclude .searchguard* --exclude .kibana*'
 
 proj_prefix = 'project.'
@@ -144,7 +144,7 @@ for operation in curator_settings:
             # construct regex to match all projects for this op/time/unit
             # regex escape any regex special characters in the project name (there shouldn't be, but just in case)
             # shellquote to protect any shell special chars in the constructed regex
-            tab_cmd = '/usr/bin/curator --loglevel ' + curlvl + ' ' + connection_info + ' ' + operation + ' indices --timestring %Y.%m.%d' + \
+            tab_cmd = '/opt/app-root/bin/curator --loglevel ' + curlvl + ' ' + connection_info + ' ' + operation + ' indices --timestring %Y.%m.%d' + \
             ' --older-than ' + str(value) + ' --time-unit ' + unit + \
             ' --regex ' + \
             shellquote('(' + '|'.join(map(

@@ -1,4 +1,4 @@
-FROM rhel7.3:7.3-released
+FROM rhscl/python-27-rhel7
 
 MAINTAINER OpenShift Development <dev@lists.openshift.redhat.com>
 
@@ -29,16 +29,12 @@ LABEL io.k8s.description="Curator elasticsearch container for elasticsearch dele
   release="1" \
   architecture=x86_64
 
-RUN yum-config-manager --enable rhel-7-server-ose-3.6-rpms \
-                       --enable rhel-7-server-extras-rpms && \
-    INSTALL_PKGS="elastic-curator-${CURATOR_VER}.el7 \
-                  PyYAML \
-                  python-crontab \
-                  python-setuptools \
-                  pytz" && \
-    yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
-    rpm -V $INSTALL_PKGS && \
-    yum clean all
+USER root
+
+RUN scl enable python27 "pip install 'elasticsearch-curator<4.0' \
+                                     pyyaml \
+                                     pytz \
+                                     python-crontab"
 
 RUN mkdir -p ${HOME} && \
     chmod a+x ${HOME} && \

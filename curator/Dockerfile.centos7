@@ -1,4 +1,4 @@
-FROM centos:centos7
+FROM centos/python-27-centos7
 
 MAINTAINER OpenShift Development <dev@lists.openshift.redhat.com>
 
@@ -24,14 +24,12 @@ LABEL io.k8s.description="Curator elasticsearch container for elasticsearch dele
   io.k8s.display-name="Curator ${CURATOR_VER}" \
   io.openshift.tags="logging,elk,elasticsearch,curator"
 
-RUN yum install -y epel-release
-RUN yum install -y --setopt=tsflags=nodocs \
-        python-pip \
-        PyYAML \
-        pytz && \
-    pip install 'elasticsearch-curator<4.0'  \
-                 python-crontab && \
-    yum clean all
+USER root
+
+RUN scl enable python27 "pip install 'elasticsearch-curator<4.0' \
+                                      pyyaml \
+                                      pytz \
+                                      python-crontab"
 
 RUN mkdir -p ${HOME} && \
     chmod a+x ${HOME} && \
