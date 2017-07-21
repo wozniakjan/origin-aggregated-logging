@@ -90,7 +90,7 @@ if [ "${USE_MUX:-}" = "true" ] ; then
         rm -f $CFG_DIR/openshift/mux-post-input*.conf $CFG_DIR/openshift/filter-*-mux.conf
     fi
 else
-    ruby generate_throttle_configs.rb
+    scl enable rh-ruby22 "ruby generate_throttle_configs.rb"
     rm -f $CFG_DIR/openshift/*mux*.conf
     # assume mux doesn't actually read from the journal file
     if [ "${USE_JOURNAL:-}" = "true" ] ; then
