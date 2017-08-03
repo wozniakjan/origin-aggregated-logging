@@ -1,4 +1,4 @@
-FROM rhel7.3:7.3-released
+FROM jboss/openjdk18-rhel7:latest
 
 MAINTAINER OpenShift Development <dev@lists.openshift.redhat.com>
 
@@ -38,10 +38,9 @@ LABEL io.k8s.description="Elasticsearch container for EFK aggregated logging sto
       release="1"
 
 RUN yum-config-manager --enable rhel-7-server-ose-3.6-rpms \
-                   --enable rhel-7-server-extras-rpms  && \
+                       --enable rhel-7-server-extras-rpms  && \
     packages="elasticsearch-${ES_VER} \
               elasticsearch-cloud-kubernetes-${ES_CLOUD_K8S_VER}.redhat_1 \
-              java-${JAVA_VER}-openjdk-headless \
               openshift-elasticsearch-plugin-${OSE_ES_VER}__redhat_1 \
               PyYAML  \
               zip" && \

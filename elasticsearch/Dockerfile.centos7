@@ -1,4 +1,4 @@
-FROM centos:centos7
+FROM jboss/base-jdk:8
 
 MAINTAINER OpenShift Development <dev@lists.openshift.redhat.com>
 
@@ -38,7 +38,6 @@ ADD elasticsearch.repo /etc/yum.repos.d/elasticsearch.repo
 # install the RPMs in a separate step so it can be cached
 RUN rpm --import https://packages.elastic.co/GPG-KEY-elasticsearch && \
     yum install -y --setopt=tsflags=nodocs \
-                java-${JAVA_VER}-openjdk-headless \
                 elasticsearch-${ES_VER} \
                 PyYAML && \
     yum clean all

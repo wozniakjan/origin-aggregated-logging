@@ -1,4 +1,4 @@
-FROM rhel7.3:7.3-released
+FROM rhscl/ruby-22-rhel7
 
 MAINTAINER OpenShift Development <dev@lists.openshift.redhat.com>
 
@@ -25,7 +25,9 @@ LABEL io.k8s.description="Fluentd container for collecting of docker container l
       release="1" \
       architecture=x86_64
 
-RUN yum-config-manager --enable rhel-7-server-ose-3.6-rpms && \
+USER root
+
+RUN yum-config-manager --enable rhel-7-server-extras-rpms && \
   INSTALL_PKGS="fluentd-${FLUENTD_VERSION} \
                 hostname \
                 bc \
