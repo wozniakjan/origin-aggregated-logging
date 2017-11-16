@@ -39,6 +39,8 @@ if [ -z "${USE_MUX:-}" -o "${USE_MUX:-}" = "false" ] ; then
     fi
     if docker_uses_journal ; then
         export USE_JOURNAL=true
+        echo "journal not supported in this prototype"
+        exit 1
     else
         export USE_JOURNAL=false
     fi
@@ -47,6 +49,8 @@ else
     # mux requires USE_JOURNAL=true so that the k8s meta plugin will look
     # for CONTAINER_NAME instead of the kubernetes.var.log.containers.* tag
     export USE_JOURNAL=true
+    echo "journal not supported in this prototype"
+    exit 1
 fi
 
 if [ ! -d /etc/fluent/muxkeys ]; then
