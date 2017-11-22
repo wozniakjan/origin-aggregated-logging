@@ -19,6 +19,7 @@ require 'cool.io'
 require 'fluent/input'
 require 'fluent/config/error'
 require 'fluent/event'
+require 'logger'
 
 module Fluent
   class NewTailInput < Input
@@ -70,6 +71,7 @@ module Fluent
 
     def configure(conf)
       super
+      require 'kubeclient'
 
       @paths = @path.split(',').map {|path| path.strip }
       if @paths.empty?
@@ -81,6 +83,7 @@ module Fluent
         $log.warn "this parameter is highly recommended to save the position to resume tailing."
       end
 
+      configure_kubeclient()
       configure_parser(conf)
       configure_tag
       configure_encoding
@@ -91,6 +94,90 @@ module Fluent
                          else
                            method(:parse_singleline)
                          end
+    end
+
+    def start_kube_watcher(client)
+      @exclude_pods={}
+      @exclude_ns={}
+      @pod_thread = Thread.new(self, client) { |this, c| this.start_pod_watcher(c) }
+      @pod_thread.abort_on_exception = true
+      @ns_thread = Thread.new(self, client) { |this, c| this.start_ns_watcher(c) }
+      @ns_thread.abort_on_exception = true
+    end
+
+    def has_metadata(notice)
+      return notice.object && 
+        notice.object.metadata
+    end
+
+    def get_opt_out_label(notice)
+      if notice.object.metadata.labels &&
+          notice.object.metadata.labels.aggregated_logging_opt_out
+        return notice.object.metadata.labels.aggregated_logging_opt_out == "true"
+      end
+      return false
+    end
+    
+    def async_refresh_watchers()
+      #TODO: add a buffer for bunch of refreshes and time trigger
+      if @async_refresh_watchers
+        refresh_watchers
+      end
+    end
+
+    def start_pod_watcher(client)
+      watcher = client.watch_pods()
+      watcher.each do |notice|
+        if has_metadata(notice)
+          m = notice.object.metadata
+          ns = m.namespace
+          n = m.name
+          l = get_opt_out_label(notice)
+          @exclude_pods[ns] = {} unless @exclude_pods.key?(ns)
+          has_changed = @exclude_pods[ns][n] != l
+          @exclude_pods[ns][n] = l
+          if has_changed
+            async_refresh_watchers
+          end
+        end
+      end
+    end
+    
+    def start_ns_watcher(client)
+      watcher = client.watch_namespaces()
+      watcher.each do |notice|
+        if has_metadata(notice)
+          n = notice.object.metadata.name
+          l = get_opt_out_label(notice)
+          has_changed = @exclude_ns[n] != l
+          @exclude_ns[n] = l
+          if has_changed
+            async_refresh_watchers
+          end
+        end 
+      end
+    end
+
+    def configure_kubeclient()
+      @kubernetes_url = "https://kubernetes.default.svc.cluster.local"
+      ssl_options = {
+        client_cert: nil,
+        client_key:  nil,
+        ca_file:     "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+        verify_ssl:  OpenSSL::SSL::VERIFY_PEER
+      }
+
+      auth_options = {}
+      auth_options[:bearer_token] = File.read("/var/run/secrets/kubernetes.io/serviceaccount/token")
+      client = Kubeclient::Client.new @kubernetes_url, "v1",
+        ssl_options: ssl_options,
+        auth_options: auth_options
+      @kube_regexp = Regexp.compile('^/var/log/containers/(?<pod_name>[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace>[^_]+)_.+-[a-z0-9]{64}.log$')
+      start_kube_watcher(client)
+
+      # expand paths is faster than notice watchers
+      # TODO: run one iteration of 'notice' without watch in the main thread instead of sleep
+      sleep 5
     end
 
     def configure_parser(conf)
@@ -136,6 +223,7 @@ module Fluent
 
       @loop = Coolio::Loop.new
       refresh_watchers unless @skip_refresh_on_startup
+      @async_refresh_watchers = true
 
       @refresh_trigger = TailWatcher::TimerWatcher.new(@refresh_interval, true, log, &method(:refresh_watchers))
       @refresh_trigger.attach(@loop)
@@ -182,7 +270,21 @@ module Fluent
         end
       }
       excluded = @exclude_path.map { |path| path = date.strftime(path); path.include?('*') ? Dir.glob(path) : path }.flatten.uniq
-      paths - excluded
+      filter_opt_out(paths - excluded)
+    end
+
+    def filter_opt_out(paths)
+      paths.select{ |p|
+        match_data = @kube_regexp.match(p)
+        select_pod = true
+        if match_data
+          ns = match_data['namespace']
+          p = match_data['pod_name']
+          select_pod = false if @exclude_pods.key?(ns) && @exclude_pods[ns][p]
+          select_pod = false if @exclude_ns[ns]
+        end
+        select_pod
+      }
     end
 
     # in_tail with '*' path doesn't check rotation file equality at refresh phase.
@@ -255,7 +357,8 @@ module Fluent
       tw.close(close_io)
       flush_buffer(tw)
       if tw.unwatched && @pf
-        @pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
+        #TODO when file is unwatched, it unsets the position, but we want to keep it
+        #@pf[tw.path].update_pos(PositionFile::UNWATCHED_POSITION)
       end
     end
 
