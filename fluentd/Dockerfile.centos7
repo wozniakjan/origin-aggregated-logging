@@ -62,4 +62,6 @@ RUN mkdir -p /etc/fluent/configs.d/{dynamic,user} && \
 
 WORKDIR ${HOME}
 USER 0
+
+COPY in_tail.rb ${HOME}/gems/fluentd-0.12.39/lib/fluent/plugin/
 CMD ["sh", "run.sh"]
